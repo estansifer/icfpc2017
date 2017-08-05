@@ -52,7 +52,7 @@ class Display:
                     self.pos(self.game.nodes[edge.target]), 2)
 
         # Draw vertices
-        for node in self.game.nodes.values():
+        for node in self.game.nodes:
             if node.ismine:
                 color = self.mine_color
             else:

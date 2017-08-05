@@ -1,7 +1,7 @@
 import os
 import os.path
 
-DEBUG = True
+DEBUG = False
 
 if DEBUG:
     log_dir = os.path.join('..', 'logs')
@@ -32,6 +32,5 @@ if DEBUG:
         logfilehandle.flush()
 
 else:
-
-    def db(text):
+    def db(*args, **kwargs):
         pass

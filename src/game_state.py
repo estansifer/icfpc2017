@@ -39,7 +39,9 @@ class Edge:
 #
 # g.apply_moves(message)
 #   Given a message received from the server describing moves made, update the game state.
-# g.make_move(e) or g.make_pass()
+# g.message_ready()
+#   Give an appropriate ready message
+# g.message_move(e) or g.message_pass()
 #   Given an Edge instance which we should claim, return an appropriate message claiming
 #   that edge to send to the server. The game state is not updated yet (it should be
 #   updated by the response from the server).
@@ -54,35 +56,51 @@ class Game:
     def __init__(self, n, me):
         self.n = n
         self.me = me
-        self.nodes = {}
+        self.k = 0
+        self.siteid2nodeid = {}
+        self.nodeid2siteid = {}
+        self.nodes = []
         self.edges = []
         self.mines = []
+        self.set_settings({})
+
+    def set_settings(self, settings):
+        self.settings = settings
+        self.futures = settings.get('futures', False)
+
+    def add_node(self, siteid):
+        nodeid = self.k
+        self.siteid2nodeid[siteid] = nodeid
+        self.nodeid2siteid[nodeid] = siteid
+        self.k += 1
+        node = Node(nodeid)
+        self.nodes.append(node)
+        return node
+
+    def add_edge(self, source, target, owner = -1):
+        edge = Edge(source, target, owner)
+        self.edges.append(edge)
+        self.nodes[source].edges[target] = edge
+        self.nodes[target].edges[source] = edge
 
     def from_json_setup(message):
-        n = message['punters']
-        me = message['punter']
-        g = Game(n, me)
+        g = Game(message['punters'], message['punter'])
+        g.set_settings(message.get('settings', {}))
         m = message['map']
 
         for s in m['sites']:
-            nodeid = s['id']
-            node = Node(nodeid)
-            g.nodes[nodeid] = node
+            node = g.add_node(s['id'])
             if 'x' in s:
                 node.x = s['x']
                 node.y = s['y']
 
-        g.k = len(g.nodes)
-
         for r in m['rivers']:
-            a = r['source']
-            b = r['target']
-            e = Edge(a, b)
-            g.edges.append(e)
-            g.nodes[a].edges[b] = e
-            g.nodes[b].edges[a] = e
+            a = g.siteid2nodeid[r['source']]
+            b = g.siteid2nodeid[r['target']]
+            g.add_edge(a, b)
 
         for mine in m['mines']:
+            mine = g.siteid2nodeid[mine]
             g.nodes[mine].ismine = True
             g.mines.append(mine)
 
@@ -90,45 +108,36 @@ class Game:
         return g
 
     def from_json_offline(message):
-        n = message['punters']
-        me = message['punter']
-        g = Game(n, me)
+        g = Game(message['n'], message['me'])
+        g.set_settings(message.get('settings', {}))
         m = message['map']
 
-        for s in m['sites']:
-            nodeid = s['id']
-            g.nodes[nodeid] = Node(nodeid)
+        for s in m['nodes']:
+            g.add_node(s['siteid'])
 
-        g.k = len(g.nodes)
-
-        for r in m['rivers']:
-            a = r['source']
-            b = r['target']
-            o = r['owner']
-            e = Edge(a, b, o)
-            g.edges.append(e)
-            g.nodes[a].edges[b] = e
-            g.nodes[b].edges[a] = e
+        for e in m['edges']:
+            g.add_edge(e['source'], e['target'], e['owner'])
 
         for mine in m['mines']:
             g.nodes[mine].ismine = True
             g.mines.append(mine)
 
-        g.floyd_warshall()
+        g.dists = m['dists']
         return g
 
     def to_json_offline(self):
         message = {}
-        message['punters'] = self.n
-        message['punter'] = self.me
-        m = {'sites' : [], 'rivers' : [], 'mines' : []}
+        message['n'] = self.n
+        message['me'] = self.me
+        message['settings'] = self.settings
+        m = {'nodes' : [], 'edges' : [], 'mines' : [], 'dists' : self.dists}
         message['map'] = m
 
-        for node in self.nodes.values():
-            m['sites'].append({'id' : node.nodeid})
+        for node in self.nodes:
+            m['nodes'].append({'siteid' : self.nodeid2siteid[node.nodeid]})
 
         for edge in self.edges:
-            m['rivers'].append({'source' : edge.source, 'target' : edge.target, 'owner' : edge.owner})
+            m['edges'].append({'source' : edge.source, 'target' : edge.target, 'owner' : edge.owner})
 
         for mine in self.mines:
             m['mines'].append(mine)
@@ -136,52 +145,68 @@ class Game:
         return message
 
     def apply_moves(self, message):
-        for m in message['move']:
+        for m in message['moves']:
             if 'pass' in m:
                 continue
             if 'claim' in m:
                 c = m['claim']
-                e = self.nodes[c['source']].edges[c['target']]
+                a = self.siteid2nodeid[c['source']]
+                b = self.siteid2nodeid[c['target']]
+                e = self.nodes[a].edges[b]
                 e.owner = c['punter']
 
-    def make_move(self, e):
-        message = {'claim' : {'punter' : self.me, 'source' : e.source, 'target' : e.target}}
-        # Don't actually make move until it's been confirmed by the server.
-        # e.owner = self.me
+    def message_ready(self):
+        message = {'ready' : self.me}
+        if self.futures:
+            message['futures'] = []
         return message
 
-    def make_pass(self):
+    def message_move(self, e):
+        a = self.nodeid2siteid[e.source]
+        b = self.nodeid2siteid[e.target]
+        message = {'claim' : {'punter' : self.me, 'source' : a, 'target' : b}}
+        return message
+
+    def message_pass(self):
         return {'pass' : {'punter' : self.me}}
 
     def floyd_warshall(self):
-        large = self.k + 1
-        self.dists = {}
-        for i in self.nodes:
-            for j in self.nodes:
-                self.dists[(i, j)] = large
-            self.dists[(i, i)] = 0
+        K = self.k
+        large = K + 1
+        self.dists = [[large for i in range(K)] for j in range(K)]
+        for i in range(K):
+            self.dists[i][i] = 0
 
         for e in self.edges:
-            self.dists[(e.source, e.target)] = 1
-            self.dists[(e.target, e.source)] = 1
+            self.dists[e.source][e.target] = 1
+            self.dists[e.target][e.source] = 1
 
-        for k in self.nodes:
-            for i in self.nodes:
-                for j in self.nodes:
-                    if self.dists[(i, j)] > self.dists[(i, k)] + self.dists[(k, j)]:
-                        self.dists[(i, j)] = self.dists[(i, k)] + self.dists[(k, j)]
+        for k in range(K):
+            for i in range(K):
+                for j in range(K):
+                    if self.dists[i][j] > self.dists[i][k] + self.dists[k][j]:
+                        self.dists[i][j] = self.dists[i][k] + self.dists[k][j]
 
+    def summary(self):
+        lines = []
+        lines.append(
+                "{} nodes, {} edges, {} mines, {} punters, we are {}".format(
+                    self.k, len(self.edges), len(self.mines), self.n, self.me))
+        counts = [0] * self.n
+        for edge in self.edges:
+            if edge.owner >= 0:
+                counts[edge.owner] += 1
+
+        lines.append("#Edges owned: {}".format(counts))
+
+        return lines
 
     def layout_initial(self):
-        for node in self.nodes.values():
+        for node in self.nodes:
             node.x = random.random()
             node.y = random.random()
 
     def layout_relax(self, numsteps = 10):
-        nodeids = []
-        for n in self.nodes:
-            nodeids.append(n)
-
         k = self.k
 
         x = np.zeros((k,))
@@ -190,11 +215,10 @@ class Game:
         diag = np.identity(k, dtype = bool)
 
         for i in range(k):
-            x[i] = self.nodes[nodeids[i]].x
-            y[i] = self.nodes[nodeids[i]].y
-            for j in range(k):
-                if nodeids[j] in self.nodes[nodeids[i]].edges:
-                    connected[i, j] = True
+            x[i] = self.nodes[i].x
+            y[i] = self.nodes[i].y
+            for j in self.nodes[i].edges:
+                connected[i, j] = True
 
         xlow = np.min(x)
         xhigh = np.max(x)
@@ -235,19 +259,18 @@ class Game:
         y = (y - ylow) / (yhigh - ylow)
 
         for i in range(k):
-            self.nodes[nodeids[i]].x = x[i]
-            self.nodes[nodeids[i]].y = y[i]
+            self.nodes[i].x = x[i]
+            self.nodes[i].y = y[i]
 
     def layout_normalize(self):
-        xs = [self.nodes[nodeid].x for nodeid in self.nodes]
-        ys = [self.nodes[nodeid].y for nodeid in self.nodes]
+        xs = [node.x for node in self.nodes]
+        ys = [node.y for node in self.nodes]
 
         xlow = min(xs)
         xhigh = max(xs)
         ylow = min(ys)
         yhigh = max(ys)
 
-        for nodeid in self.nodes:
-            n = self.nodes[nodeid]
+        for n in self.nodes:
             n.x = (n.x - xlow) / (xhigh - xlow)
             n.y = (n.y - ylow) / (yhigh - ylow)

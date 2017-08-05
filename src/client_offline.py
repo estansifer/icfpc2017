@@ -37,17 +37,16 @@ class Client:
             self.game = game_state.Game.from_json_offline(j['state'])
 
             if 'move' in j:
-                self.game.apply_moves(j)
+                self.game.apply_moves(j['move'])
                 self.waiting_for_move = True
 
             if 'stop' in j:
-                self.game.apply_moves({'move' : j['stop']})
+                self.game.apply_moves(j['stop'])
 
     def ready(self):
         send_message({'ready' : self.game.me, 'state' : self.game.to_json_offline()})
 
-
     def make_move(self, edge):
-        move = self.game.make_move(edge)
+        move = self.game.message_move(edge)
         move['state'] = self.game.to_json_offline()
         send_message(move)

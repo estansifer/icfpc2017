@@ -13,14 +13,10 @@ def main(choose_move):
         client.make_move(choose_move(client.game))
 
 if __name__ == "__main__":
-    if len(sys.argv) == 1:
-        choose_move = ai.random
-    elif len(sys.argv) == 2:
+    if len(sys.argv) == 2:
         choose_move = ai.lookup_ai(sys.argv[1])
         if choose_move is None:
             sys.exit(1)
     else:
         sys.exit(1)
-    sys.stderr.write('test')
-    sys.stderr.flush()
     main(choose_move)
