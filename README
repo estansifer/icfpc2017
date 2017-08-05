@@ -1,0 +1,9 @@
+Lightning round submission
+
+Team members
+    Eric Stansifer
+    Sherry Gong
+
+Algorithm
+    We implemented the greedy algorithm, which chooses the edge that maximizes the score we
+    would have if the game ended immediately. We do not use any futures.

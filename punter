@@ -3,5 +3,4 @@
 curdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 cd $curdir/src
-echo "test" > testout
-python3 main_offline.py
+python3 main_offline.py greedy
