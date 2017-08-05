@@ -86,6 +86,7 @@ class Game:
             g.nodes[mine].ismine = True
             g.mines.append(mine)
 
+        g.floyd_warshall()
         return g
 
     def from_json_offline(message):
@@ -113,6 +114,7 @@ class Game:
             g.nodes[mine].ismine = True
             g.mines.append(mine)
 
+        g.floyd_warshall()
         return g
 
     def to_json_offline(self):
@@ -150,6 +152,25 @@ class Game:
 
     def make_pass(self):
         return {'pass' : {'punter' : self.me}}
+
+    def floyd_warshall(self):
+        large = self.k + 1
+        self.dists = {}
+        for i in self.nodes:
+            for j in self.nodes:
+                self.dists[(i, j)] = large
+            self.dists[(i, i)] = 0
+
+        for e in self.edges:
+            self.dists[(e.source, e.target)] = 1
+            self.dists[(e.target, e.source)] = 1
+
+        for k in self.nodes:
+            for i in self.nodes:
+                for j in self.nodes:
+                    if self.dists[(i, j)] > self.dists[(i, k)] + self.dists[(k, j)]:
+                        self.dists[(i, j)] = self.dists[(i, k)] + self.dists[(k, j)]
+
 
     def layout_initial(self):
         for node in self.nodes.values():
