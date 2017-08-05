@@ -122,7 +122,7 @@ class Game:
         m = {'sites' : [], 'rivers' : [], 'mines' : []}
         message['map'] = m
 
-        for node in self.nodes:
+        for node in self.nodes.values():
             m['sites'].append({'id' : node.nodeid})
 
         for edge in self.edges:
