@@ -1,4 +1,5 @@
 import random
+import collections
 import numpy as np
 
 #
@@ -104,7 +105,7 @@ class Game:
             g.nodes[mine].ismine = True
             g.mines.append(mine)
 
-        g.floyd_warshall()
+        g.all_dijkstra()
         return g
 
     def from_json_offline(message):
@@ -186,6 +187,22 @@ class Game:
                 for j in range(K):
                     if self.dists[i][j] > self.dists[i][k] + self.dists[k][j]:
                         self.dists[i][j] = self.dists[i][k] + self.dists[k][j]
+
+    def all_dijkstra(self):
+        K = self.k
+        large = K + 1
+        self.dists = [[large for i in range(K)] for j in range(K)]
+
+        for i in range(K):
+            self.dists[i][i] = 0
+
+            q = collections.deque([i])
+            while len(q) > 0:
+                j = q.popleft()
+                for k in self.nodes[j].edges:
+                    if self.dists[i][k] == large:
+                        self.dists[i][k] = self.dists[i][j] + 1
+                        q.append(k)
 
     def summary(self):
         lines = []
