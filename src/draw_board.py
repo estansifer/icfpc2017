@@ -4,8 +4,8 @@ import pygame
 margin = 0.05
 
 class Display:
-    def __init__(self, game, width = 1440, height = 900):
-        self.game = game
+    def __init__(self, board, width = 1440, height = 900):
+        self.board = board
 
         pygame.init()
         self.surface = pygame.display.set_mode((width, height))
@@ -34,30 +34,28 @@ class Display:
             pygame.Color(0, 0, 255)
             ]
 
-    # Assuming node.x, node.y vary from 0 to 1
-    def pos(self, node):
-        return (int(self.x0 + self.dx * node.x), int(self.y0 + self.dy * node.y))
+    # Assuming x, y vary from 0 to 1
+    def pos(self, xy):
+        return (int(self.x0 + self.dx * xy[0]), int(self.y0 + self.dy * xy[1]))
 
     def draw(self):
         self.surface.fill(pygame.Color(0, 0, 0))
 
         # Draw edges
-        for edge in self.game.edges:
-            if edge.owner == -1:
+        for i in range(self.board.n):
+            for j in self.board.edges[i]:
                 color = self.unclaimed_color
-            else:
-                color = self.claimed_colors[edge.owner % len(self.claimed_colors)]
-            pygame.draw.line(self.surface, color,
-                    self.pos(self.game.nodes[edge.source]),
-                    self.pos(self.game.nodes[edge.target]), 2)
+                pygame.draw.line(self.surface, color,
+                        self.pos(self.board.xy[i]),
+                        self.pos(self.board.xy[j]), 2)
 
         # Draw vertices
-        for node in self.game.nodes:
-            if node.ismine:
+        for i in range(self.board.n):
+            if self.board.ismine[i]:
                 color = self.mine_color
             else:
                 color = self.nonmine_color
-            pygame.draw.circle(self.surface, color, self.pos(node), 5)
+            pygame.draw.circle(self.surface, color, self.pos(self.board.xy[i]), 5)
 
         pygame.display.flip()
 
@@ -65,8 +63,8 @@ class Display:
         pygame.display.quit()
         pygame.quit()
 
-def display(game, timeout = 3):
-    d = Display(game)
+def display(board, timeout = 3):
+    d = Display(board)
     d.draw()
 
     if timeout > 0:
@@ -79,20 +77,14 @@ def display(game, timeout = 3):
 if __name__ == "__main__":
     import sys
     if len(sys.argv) == 2:
-        import json
-        import game_state as GS
-        filename = sys.argv[1]
-        with open(filename, 'r') as f:
-            j = json.load(f)
-
-        message = {'punters' : 2, 'punter' : 0, 'map' : j}
-        g = GS.Game.from_json_setup(message)
-        g.layout_normalize()
+        import board
+        b = board.Board.from_json_file(sys.argv[1])
+        b.layout_normalize()
 
         if True:
-            g.layout_initial()
-            g.layout_relax(1000)
+            b.layout_initial()
+            b.layout_relax(1000)
 
-        display(g, 5)
+        display(b, 5)
     else:
-        print("Usage: python3 draw_game_state <path-to-map-file>")
+        print("Usage: python3 draw_board <path-to-map-file>")

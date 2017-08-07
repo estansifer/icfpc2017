@@ -1,32 +1,30 @@
 import json
 import sys
 
+import board
 import game_state as GS
 import ai
 
-def main(mapfile, ais, display = False):
+def main(mapfile, ais, settings = {}):
     n = len(ais)
     print("Playing a game on {} with {} AIs.".format(mapfile, n))
 
-    with open(mapfile, 'r') as f:
-        m = json.load(f)
+    b = board.Board.from_json_file(mapfile)
+    print(b.summary())
 
     games = []
     for i in range(n):
-        games.append(GS.Game.from_json_setup({'punters' : n, 'punter' : i, 'map' : m}))
+        games.append(GS.GameState1.from_board(b, n, i, settings))
 
-    k = games[0].k
+    edges = b.num_edges
 
-    for i in range(k):
-        edge = ais[i % n](games[i % n])
+    for i in range(edges):
+        print("Move {}".format(i))
 
-        if edge.owner != -1:
-            print("Trying to claim an edge that is already claimed!")
-            print("AI {} is trying to take {}'s edge.".format(i % n, edge.owner))
-            sys.exit(1)
+        move = ais[i % n](games[i % n])
 
         for game in games:
-            game.nodes[edge.source].edges[edge.target].owner = i % n
+            game.apply_move(i % n, move)
 
     print("Game completed!")
 

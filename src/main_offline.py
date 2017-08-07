@@ -2,15 +2,10 @@ import sys
 import json
 
 import ai
-import client_offline
-
-name = "This is an albatrocity!"
+import client
 
 def main(choose_move):
-    client = client_offline.Client()
-
-    if client.waiting_for_move:
-        client.make_move(choose_move(client.game))
+    client.client_offline(choose_move)
 
 if __name__ == "__main__":
     if len(sys.argv) == 2:
@@ -19,4 +14,6 @@ if __name__ == "__main__":
             sys.exit(1)
     else:
         sys.exit(1)
+    sys.stderr.write('test\n')
+    sys.stderr.flush()
     main(choose_move)

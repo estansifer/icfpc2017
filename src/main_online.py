@@ -2,22 +2,23 @@ import sys
 import socket
 
 import ai
-import client_online
+import client
+import timer
 from debug import db
 
-url = 'punter.inf.ed.ac.uk'
-
 def main(choose_move, port):
-    print("Connecting to {}".format(port))
-    client = client_online.Client(port)
+    t = timer.Timer()
 
-    while client.waiting_for_move:
-        edge = choose_move(client.game)
-        print("Chose edge from {} to {}".format(edge.source, edge.target))
-        client.make_move(edge)
+    c = client.ClientOnline(port)
 
-    print('\n'.join(client.game.summary()))
-    print(client.scores)
+    while c.waiting_for_move:
+        with t:
+            move = choose_move(c.gs)
+        c.make_move(move)
+
+    print(c.gs.summary())
+    print(t.summary())
+    print(c.scores)
 
 if __name__ == "__main__":
     if len(sys.argv) == 3:
@@ -27,4 +28,3 @@ if __name__ == "__main__":
         main(a, port)
     else:
         print("Usage: python3 main_online <port> <AI name>")
-

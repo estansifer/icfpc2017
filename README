@@ -1,9 +1,12 @@
-Lightning round submission
-
 Team members
     Eric Stansifer
-    Sherry Gong
+    Sherry Gong (contributed code to lightning round)
 
 Algorithm
-    We implemented the greedy algorithm, which chooses the edge that maximizes the score we
-    would have if the game ended immediately. We do not use any futures.
+    I implemented the greedy algorithm, which chooses the edge that maximizes the score we
+    would have if the game ended immediately. We do not use any extensions but the code
+    should still run in games where extensions are used.
+
+    I had some ideas for other algorithms, but because of repetitive strain injury in my
+    wrists, I was unable to implement them. I was also unable to find others interested
+    in working on the problem.
